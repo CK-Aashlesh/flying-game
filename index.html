@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no, orientation=portrait"
+    />
+    <title>Sphere Hive Flying</title>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        background: url("bg/SH.jpeg") no-repeat center center;
+        background-size: cover;
+      }
+      #startScreen,
+      #endScreen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        color: white;
+        font-size: 22px;
+        text-align: center;
+        z-index: 10;
+      }
+      #startScreen button,
+      #endScreen button {
+        background: #ff4444;
+        color: white;
+        padding: 12px 25px;
+        border: none;
+        border-radius: 10px;
+        font-size: 20px;
+        cursor: pointer;
+        margin-top: 15px;
+      }
+      #endScreen {
+        visibility: hidden;
+      }
+      #endScreen img {
+        width: 80vw;
+        max-width: 520px;
+        max-height: 60vh;
+        height: auto;
+        object-fit: contain;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 0 20px white;
+      }
+      .selectors {
+        display: flex;
+        gap: 14px;
+        margin: 14px 0;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .selectors label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 10px 12px;
+        border-radius: 10px;
+      }
+      .selectors select {
+        background: #111;
+        color: #fff;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 6px 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="startScreen">
+      <h2>Sphere Hive</h2>
+      <p>
+        Click the Submit button to <br />know your position in the Sphere Hive
+        Club.
+      </p>
+      <div class="selectors">
+        <label>
+          Your Name
+          <select id="characterSelect">
+            <option value="char/Shaheed.png" selected>Your Name</option>
+            <option value="char/Shaheed.png">Shaheed</option>
+            <option value="char/lochan.png">Lochan</option>
+            <option value="char/prajwal.png">Prajwal</option>
+            <!-- <option value="char/arshad.png">Arshad</option> -->
+            <option value="char/rahil.png">Rahil</option>
+            <option value="char/srijesh.png">Srijesh</option>
+            <option value="char/rahul.png">Rahul</option>
+            <option value="char/thimmaya.png">Thimmaiah</option>
+            <option value="char/adithyan.png">Adhithyan</option>
+            <option value="char/anchit.png">Anchith</option>
+            <option value="char/prapth.png">Prapth</option>
+            <option value="char/thanvith.png">Thanvith</option>
+            <option value="char/likhin.png">Likhin</option>
+            <option value="char/shizan.png">Thanvith</option>
+            <option value="char/ashmal.png">Ashmal</option>
+          </select>
+        </label>
+        <label>
+          Club
+          <select id="pillarSelect">
+            <option value="piller/pillar.webp" selected>Sphere Hive</option>
+          </select>
+        </label>
+      </div>
+      <button onclick="startGame()">Submit</button>
+    </div>
+
+    <div id="endScreen">
+      <img id="endImage" src="" alt="End Image" />
+      <button onclick="restartGame()">Tap to Restart</button>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      // === IMAGES ===
+      const bg = new Image();
+      bg.src = "bg/SH.jpeg";
+      const birdImg = new Image();
+      birdImg.src = "char/Shaheed.png";
+      const pillarImg = new Image();
+      pillarImg.src = "piller/pillar.webp";
+      const hitImg = new Image();
+      hitImg.src = "end.webp";
+      const loveImg = new Image();
+      loveImg.src = "winner.webp";
+
+      // === SOUNDS ===
+      const bgMusic = new Audio("full.aac");
+      const hitSound = new Audio("end.mpeg");
+      const endSound = new Audio("end.mpeg");
+      bgMusic.loop = true;
+      bgMusic.volume = 0.6;
+
+      // === VARIABLES ===
+      let birdY = canvas.height / 2;
+      let birdVelocity = 0;
+
+      // Slightly stronger gravity & jump for faster feel
+      const gravity = 0.18;
+      const jump = -4.2;
+
+      let pipes = [];
+      let frame = 0;
+      let gameOver = false;
+      let started = false;
+      let startTime = null;
+
+      // Increased pipe speed
+      const pipeSpeed = 4.2;
+
+      const frameRate = 1000 / 60;
+      let lastTime = 0;
+
+      // Bird size
+      const birdWidth = 110;
+      const birdHeight = 110;
+
+      function applySelections() {
+        const characterSelect = document.getElementById("characterSelect");
+        const pillarSelect = document.getElementById("pillarSelect");
+        birdImg.src = characterSelect?.value || "char/Shaheed.png";
+        pillarImg.src = pillarSelect?.value || "piller/pillar.webp";
+      }
+
+      function startGame() {
+        document.getElementById("startScreen").style.display = "none";
+        bgMusic.currentTime = 0;
+        bgMusic.play();
+        applySelections();
+        resetGame();
+      }
+
+      function resetGame() {
+        birdY = canvas.height / 2;
+        birdVelocity = 0;
+        pipes = [];
+        frame = 0;
+        gameOver = false;
+        started = true;
+        startTime = performance.now();
+        document.getElementById("endScreen").style.visibility = "hidden";
+        lastTime = performance.now();
+        loop();
+      }
+
+      function restartGame() {
+        endSound.pause();
+        document.getElementById("endScreen").style.visibility = "hidden";
+        startGame();
+      }
+
+      function loop(now = 0) {
+        if (gameOver || !started) return;
+        if (now - lastTime < frameRate) {
+          requestAnimationFrame(loop);
+          return;
+        }
+        lastTime = now;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+
+        // Bird physics
+        birdVelocity += gravity;
+        birdY += birdVelocity;
+        ctx.drawImage(
+          birdImg,
+          canvas.width * 0.35,
+          birdY,
+          birdWidth,
+          birdHeight
+        );
+
+        // Generate pipes faster
+        if (frame % 90 === 0) {
+          const topHeight = Math.random() * (canvas.height * 0.2) + 80;
+          const gapSize = canvas.height * 0.36; // still easy gap
+          pipes.push({ x: canvas.width, top: topHeight, gap: gapSize });
+        }
+
+        // Move and draw pipes
+        for (let i = 0; i < pipes.length; i++) {
+          const p = pipes[i];
+          p.x -= pipeSpeed;
+
+          ctx.drawImage(pillarImg, p.x, 0, 100, p.top);
+          ctx.drawImage(
+            pillarImg,
+            p.x,
+            p.top + p.gap,
+            100,
+            canvas.height - p.top - p.gap
+          );
+
+          // Collision detection
+          const birdX = canvas.width * 0.35;
+          const hitboxOffset = 15;
+          const bx1 = birdX + hitboxOffset;
+          const by1 = birdY + hitboxOffset;
+          const bx2 = birdX + birdWidth - hitboxOffset * 2;
+          const by2 = birdY + birdHeight - hitboxOffset * 2;
+
+          if (
+            bx2 > p.x &&
+            bx1 < p.x + 100 &&
+            (by1 < p.top || by2 > p.top + p.gap)
+          ) {
+            hitSound.play();
+            bgMusic.pause();
+            showEndScreen(hitImg.src || "end.webp");
+            return;
+          }
+        }
+
+        // Remove old pipes
+        pipes = pipes.filter((p) => p.x + 100 > 0);
+
+        // Ground / ceiling
+        if (birdY > canvas.height - birdHeight || birdY < 0) {
+          hitSound.play();
+          bgMusic.pause();
+          showEndScreen(hitImg.src || "end.webp");
+          return;
+        }
+
+        // Cinematic ending
+        const elapsed = performance.now() - startTime;
+        if (elapsed > 28000 && elapsed < 30000) {
+          const opacity = Math.min((elapsed - 28000) / 1500, 1);
+          ctx.save();
+          ctx.globalAlpha = opacity;
+          ctx.fillStyle = "white";
+          ctx.font = `${canvas.width * 0.08}px Arial`;
+          ctx.textAlign = "center";
+          ctx.fillText("THE END ❤️", canvas.width / 2, canvas.height / 2 - 100);
+          ctx.restore();
+        }
+
+        if (elapsed > 30000) {
+          bgMusic.pause();
+          endSound.play();
+          showEndScreen("winner.webp");
+          return;
+        }
+
+        frame++;
+        requestAnimationFrame(loop);
+      }
+
+      function showEndScreen(imageFile) {
+        document.getElementById("endImage").src = imageFile;
+        document.getElementById("endScreen").style.visibility = "visible";
+        gameOver = true;
+      }
+
+      // Controls
+      window.addEventListener("keydown", (e) => {
+        if (e.code === "Space" && started && !gameOver) birdVelocity = jump;
+      });
+      window.addEventListener("click", () => {
+        if (started && !gameOver) birdVelocity = jump;
+      });
+      window.addEventListener("touchstart", () => {
+        if (started && !gameOver) birdVelocity = jump;
+      });
+
+      bg.onload = () => {
+        document.getElementById("startScreen").style.display = "flex";
+      };
+    </script>
+  </body>
+</html>
